@@ -180,6 +180,7 @@ def main():
             if event.type == pygame.QUIT:
                 run = False
         #bird.move()
+        base.move()
         draw_window(win, bird, pipes, base)
     pygame.quit()
     quit()
