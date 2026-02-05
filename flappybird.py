@@ -174,14 +174,37 @@ def main():
     win = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
     clock = pygame.time.Clock()
     run = True
+    score = 0
     while run:
         clock.tick(30)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
         #bird.move()
+        rem=[]
+        add_pipe = False
         for pipe in pipes:
+            if pipe.collide(bird):
+                pass
+            #ef pip er ekki in view fjarlægja hana
+            if pipe.x + pipe.PIPE_TOP.get_width() < 0:
+                rem.append(pipe)
+            #ef við höfum farið framhja pipe
+            if not pipe.passed and pipe.x < bird.x:
+                pipe.passed = True
+                add_pipe = True
+
+
             pipe.move()
+
+        if add_pipe:
+            score += 1
+            pipes.append(Pipe(700))
+        
+        for r in rem:
+            pipes.remove(r)
+
+        
         base.move()
         draw_window(win, bird, pipes, base)
     pygame.quit()
