@@ -159,23 +159,43 @@ class Base:
         win.blit(self.IMG, (self.x2, self.y))
 
 
-def draw_window(win, bird, pipes, base, score):
+def draw_window(win, birds, pipes, base, score):
     win.blit(BG_IMAGES, (0,0))
 
     #teikna allar pipes
     for pipe in pipes:
         pipe.draw(win)
-    base.draw(win)
 
     text = STAT_FONT.render("Score: " + str(score), 1, (255,255,255))
     win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
     #teikna flappybird
+    base.draw(win)
+    for bird in birds:
+        bird.draw(win)
 
-    bird.draw(win)
     pygame.display.update()
-       
-def main():
-    bird = Bird(230, 350)
+
+#main þarf að virka fyrir fleiri fugla (á sama tíma)
+#tekur inn alla genoms og evaluatear þá    
+def main(genomes, config):
+    # keep track of neural networks
+    # keep track of bird that that neural network is controlling
+    # keep track of our genomes, so i can actually change their fintess 
+    # based on how far they move, if they hit a pipe
+    nets = []
+    ge = []
+    birds = []
+    #viljum bara object og ekki id þannig _
+    for _, g in genomes:
+        #setja upp nnetwork fyrir genome
+        net = neat.nn.FeedForwardNetwork.create(g, config)
+        nets.append(net)
+        birds.append(Bird(230, 350))
+        #initial fitness á bird er 0
+        g.fitness = 0
+        ge.append(g)
+
+
     base = Base(730)
     pipes = [Pipe(700)]
     win = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
@@ -187,40 +207,84 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
+                pygame.quit()
+                quit()
+            
+        #tekka á pipes
+        pipe_ind = 0
+        if len(birds) > 0:
+            if len(pipes) > 1 and birds[0].x > pipes[0].x + pipes[0].PIPE_TOP.get_width():
+                pipe_ind = 1
+        else:
+            #ef ekki fleiri fuglar eftir
+            run = False
+            break
+        
+        #senda values á nnetwork fyrir hvern bird
+        #svo nnetwork fær output value fra synum fugl
+        #tekka ef það se stærra en 0.5, og ef ja þá láta fugl hoppa
+        for x, bird in enumerate(birds):
+            bird.move()
+            #bæta smá fitness 
+            ge[x].fitness += 0.1
+            
+            output = nets[x].activate((bird.y, abs(bird.y - pipes[pipe_ind].height), abs(bird.y - pipes[pipe_ind].bottom)))
+            if output[0] > 0.5:
+                bird.jump()
+
+
+
+
         #bird.move()
         rem=[]
+
+
         add_pipe = False
         for pipe in pipes:
-            if pipe.collide(bird):
-                pass
+            #finna hvar i lista bird er
+            for x, bird in enumerate(birds):
+                #tekka hvort allar pipes klessa á alla fugla
+                if pipe.collide(bird):
+                    #viljum lækka fitness a fugla sem klessa
+                    ge[x].fitness -= 1
+                    #svo eyða fugl
+                    nets.pop(x)
+                    birds.pop(x)
+                    ge.pop(x)
+
+                #ef einhver fugl hafi farið framhja pipe
+                if not pipe.passed and pipe.x < bird.x:
+                    pipe.passed = True
+                    add_pipe = True
+            
             #ef pip er ekki in view fjarlægja hana
             if pipe.x + pipe.PIPE_TOP.get_width() < 0:
                 rem.append(pipe)
-            #ef við höfum farið framhja pipe
-            if not pipe.passed and pipe.x < bird.x:
-                pipe.passed = True
-                add_pipe = True
-
 
             pipe.move()
 
         if add_pipe:
             score += 1
+            #ef fugl fer milli pipe hækkum við fitness
+            #fuglar sem eru enn í ge list eru enn á lifi
+            for g in ge:
+                g.fitness += 5
             pipes.append(Pipe(600))
         
         for r in rem:
             pipes.remove(r)
-        
-        if bird.y + bird.img.get_height() >= 730:
-            pass
+        #ef einhver fugl hafi snert base eða fer yfir pipes
+        for x, bird in enumerate(birds):
+            if bird.y + bird.img.get_height() >= 730 or bird.y < 0:
+                #viljum fjarlægja fugl ef hann snertir base
+                birds.pop(x)
+                nets.pop(x)
+                ge.pop(x)
 
         #bird.move()
 
         base.move()
-        draw_window(win, bird, pipes, base, score)
-    pygame.quit()
-    quit()
-main()
+        draw_window(win, birds, pipes, base, score)
 
 def run(config_path):
     #skilgeina alla properties
