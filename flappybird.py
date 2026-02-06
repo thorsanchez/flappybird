@@ -221,3 +221,23 @@ def main():
     pygame.quit()
     quit()
 main()
+
+def run(config_path):
+    #skilgeina alla properties
+    config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                         neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                         config_path)
+    #generatea population
+    p = neat.Population(config)
+    #stats output
+    p.add_reporter(neat.StdOutReporter(True))
+    p.add_reporter(neat.StatisticsReporter())
+    #notum main sem fitness function (köllum á main 50x)
+    winner = p.run(main, 50)
+
+if __name__ == "__main__":
+    #hvaða dir við erum í
+    local_dir = os.path.dirname(__file__)
+    #sameina fyrir path
+    config_path = os.path.join(local_dir, "config.txt")
+    run(config_path)
